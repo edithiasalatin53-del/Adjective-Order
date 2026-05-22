@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adjective Order Quest</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet">
+  
+  <style>
+    /* Custom Base Styles */
+    * { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
+    
+    /* Animation Keyframes */
+    @keyframes correctPulse { 
+      0%, 100% { transform: scale(1); border-color: #4ade80; } 
+      50% { transform: scale(1.02); border-color: #22c55e; box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); } 
+    }
+    @keyframes wrongShake { 
+      0%, 100% { transform: translateX(0); } 
+      20% { transform: translateX(-8px); border-color: #f472b6; } 
+      40% { transform: translateX(8px); } 
+      60% { transform: translateX(-4px); } 
+      80% { transform: translateX(4px); } 
+    }
+    @keyframes fadeIn { 
+      from { opacity: 0; transform: translateY(10px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+
+    /* Utility Classes */
+    .drag-over { 
+      transform: scale(1.01); 
+      background-color: rgba(255, 255, 255, 0.1); 
+      border-color: #fbbf24 !important; 
+    }
+    
+    .slot { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    
+    .correct-flash { animation: correctPulse 0.6s ease forwards; }
+    .wrong-flash { animation: wrongShake 0.5s ease forwards; }
+    
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+    
+    .adj-chip { 
+      cursor: grab; 
+      user-select: none; 
+      transition: all 0.15s ease; 
+      touch-action: manipulation; /* Improves touch response */
+    }
+    .adj-chip:active { cursor: grabbing; transform: scale(0.95); }
+    
+    .progress-fill { transition: width 0.5s ease-out; }
+    
+    /* Custom Scrollbar for the question list if needed */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+  </style>
+</head>
+<body class="h-full w-full overflow-auto bg-gradient-to-br from-indigo-950 via-purple-900 to-fuchsia-900 text-white selection:bg-pink-500 selection:text-white">
+
+  <div id="app" class="min-h-screen p-4 md:p-8 flex flex-col">
+    
+    <!-- Header Section -->
+    <header class="text-center mb-6 fade-in shrink-0">
+      <h1 class="text-3xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-amber-300 via-pink-300 to-purple-300 bg-clip-text text-transparent drop-shadow-sm">
+        Adjective Order Quest
+      </h1>
+      <p class="mt-2 text-purple-200 text-sm md:text-base font-medium max-w-lg mx-auto">
+        Drag or click the adjectives to build the correct phrase before the noun!
+      </p>
+    </header>
+
+    <!-- Progress Section -->
+    <div class="max-w-2xl mx-auto w-full mb-6 shrink-0">
+      <div class="flex justify-between text-xs text-purple-300 mb-1.5 font-semibold uppercase tracking-wider">
+        <span id="progress-label">Question 1 / 25</span> 
+        <span id="score-label">Score: 0</span>
+      </div>
+      <div class="h-3 rounded-full bg-purple-950/50 overflow-hidden border border-white/5 shadow-inner">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-amber-400 to-pink-500 progress-fill shadow-[0_0_10px_rgba(236,72,153,0.5)]" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Main Game Area -->
+    <main id="game-area" class="max-w-2xl mx-auto w-full flex-1 flex flex-col justify-center">
+      
+      <!-- Category Reference Card -->
+      <div class="mb-6 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm shadow-lg">
+        <div class="text-center text-xs md:text-sm text-purple-200 leading-relaxed">
+          <span class="font-bold text-amber-300 block mb-1">Standard Order:</span>
+          <span class="opacity-80">Opinion → Size → Age → Shape → Color → Origin → Material → Purpose</span>
+        </div>
+      </div>
+
+      <!-- Noun Display -->
+      <div class="text-center mb-6 fade-in">
+        <span class="text-purple-300 text-sm font-semibold tracking-wide uppercase opacity-70">Target Noun:</span>
+        <div id="noun-display" class="mt-1 text-3xl md:text-4xl font-black text-white drop-shadow-md tracking-tight"></div>
+      </div>
+
+      <!-- Drop Zone (Sentence Builder) -->
+      <div id="drop-zone" class="relative flex flex-wrap justify-center gap-2 min-h-[70px] p-4 md:p-5 rounded-2xl bg-indigo-900/30 border-2 border-dashed border-purple-400/40 mb-6 transition-all items-center shadow-inner">
+        <span class="text-purple-400/50 text-sm font-medium pointer-events-none select-none">Drop adjectives here to build the phrase</span>
+      </div>
+
+      <!-- Draggable Chips Area -->
+      <div class="mb-6">
+        <div id="chips-zone" class="flex flex-wrap justify-center gap-3 min-h-[60px]"></div>
+      </div>
+
+      <!-- Feedback Message Area -->
+      <div id="feedback" class="text-center min-h-[28px] mb-6 font-semibold text-base"></div>
+
+      <!-- Action Button -->
+      <div class="text-center pb-4">
+        <button id="check-btn" onclick="checkAnswer()" class="group relative px-8 py-3 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-indigo-950 font-bold shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:scale-100 overflow-hidden">
+          <span class="relative z-10 flex items-center gap-2">
+            Check Answer <i data-lucide="check-circle" class="w-5 h-5"></i>
+          </span>
+        </button>
+      </div>
+    </main>
+
+    <!-- Results Screen (Hidden by default) -->
+    <div id="results-screen" class="hidden max-w-md mx-auto w-full text-center fade-in py-10">
+      <div class="text-6xl mb-4 animate-bounce">🏆</div>
+      <h2 class="text-3xl font-black bg-gradient-to-r from-amber-300 to-pink-300 bg-clip-text text-transparent mb-2">
+        Quest Complete!
+      </h2>
+      <p id="final-score" class="text-purple-200 text-lg mb-8 font-medium bg-white/5 inline-block px-4 py-2 rounded-xl border border-white/10"></p>
+      
+      <button onclick="restartGame()" class="px-8 py-3 rounded-full bg-white text-indigo-900 font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto">
+        <i data-lucide="refresh-ccw" class="w-4 h-4"></i> Play Again
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Game Logic -->
+  <script>
+    // --- Configuration & Data ---
+    const CATEGORIES = ['opinion', 'size', 'age', 'shape', 'color', 'origin', 'material', 'purpose'];
+
+    const QUESTIONS = [
+      { adjectives: [{word:'red',cat:'color'},{word:'big',cat:'size'},{word:'beautiful',cat:'opinion'}], noun:'car' },
+      { adjectives: [{word:'old',cat:'age'},{word:'small',cat:'size'},{word:'wooden',cat:'material'}], noun:'box' },
+      { adjectives: [{word:'round',cat:'shape'},{word:'lovely',cat:'opinion'},{word:'blue',cat:'color'}], noun:'plate' },
+      { adjectives: [{word:'Japanese',cat:'origin'},{word:'new',cat:'age'},{word:'expensive',cat:'opinion'}], noun:'camera' },
+      { adjectives: [{word:'sleeping',cat:'purpose'},{word:'large',cat:'size'},{word:'comfortable',cat:'opinion'}], noun:'bag' },
+      { adjectives: [{word:'tiny',cat:'size'},{word:'ancient',cat:'age'},{word:'Greek',cat:'origin'}], noun:'statue' },
+      { adjectives: [{word:'silk',cat:'material'},{word:'elegant',cat:'opinion'},{word:'long',cat:'size'},{word:'black',cat:'color'}], noun:'dress' },
+      { adjectives: [{word:'young',cat:'age'},{word:'tall',cat:'size'},{word:'Italian',cat:'origin'}], noun:'chef' },
+      { adjectives: [{word:'rectangular',cat:'shape'},{word:'old',cat:'age'},{word:'impressive',cat:'opinion'}], noun:'building' },
+      { adjectives: [{word:'green',cat:'color'},{word:'small',cat:'size'},{word:'round',cat:'shape'}], noun:'pillow' },
+      { adjectives: [{word:'French',cat:'origin'},{word:'delicious',cat:'opinion'},{word:'crusty',cat:'opinion'}], noun:'bread' },
+      { adjectives: [{word:'plastic',cat:'material'},{word:'purple',cat:'color'},{word:'toy',cat:'purpose'}], noun:'horse' },
+      { adjectives: [{word:'smooth',cat:'opinion'},{word:'triangular',cat:'shape'},{word:'yellow',cat:'color'}], noun:'diamond' },
+      { adjectives: [{word:'furry',cat:'opinion'},{word:'sleeping',cat:'purpose'},{word:'small',cat:'size'}], noun:'mat' },
+      { adjectives: [{word:'modern',cat:'age'},{word:'Arabic',cat:'origin'},{word:'ornate',cat:'opinion'}], noun:'lamp' },
+      { adjectives: [{word:'enormous',cat:'size'},{word:'thick',cat:'opinion'},{word:'leather',cat:'material'}], noun:'belt' },
+      { adjectives: [{word:'long',cat:'size'},{word:'golden',cat:'color'},{word:'ancient',cat:'age'}], noun:'necklace' },
+      { adjectives: [{word:'Brazilian',cat:'origin'},{word:'energetic',cat:'opinion'},{word:'young',cat:'age'}], noun:'dancer' },
+      { adjectives: [{word:'square',cat:'shape'},{word:'pink',cat:'color'},{word:'soft',cat:'opinion'}], noun:'cushion' },
+      { adjectives: [{word:'metal',cat:'material'},{word:'cutting',cat:'purpose'},{word:'sharp',cat:'opinion'}], noun:'knife' },
+      { adjectives: [{word:'Chinese',cat:'origin'},{word:'intricate',cat:'opinion'},{word:'blue',cat:'color'},{word:'tiny',cat:'size'}], noun:'vase' },
+      { adjectives: [{word:'sturdy',cat:'opinion'},{word:'wooden',cat:'material'},{word:'large',cat:'size'}], noun:'desk' },
+      { adjectives: [{word:'silver',cat:'color'},{word:'oval',cat:'shape'},{word:'modern',cat:'age'}], noun:'mirror' },
+      { adjectives: [{word:'Indian',cat:'origin'},{word:'aromatic',cat:'opinion'},{word:'cooking',cat:'purpose'}], noun:'spice' },
+      { adjectives: [{word:'gorgeous',cat:'opinion'},{word:'purple',cat:'color'},{word:'wild',cat:'shape'}], noun:'flower' },
+    ];
+
+    // --- State Management ---
+    let currentQ = 0;
+    let score = 0;
+    let placed = []; // Array of adjective objects currently in the drop zone
+
+    // --- Utility Functions ---
+    function shuffle(arr) { 
+      return [...arr].sort(() => Math.random() - 0.5); 
+    }
+
+    function getCorrectOrder(adjs) {
+      return [...adjs].sort((a, b) => CATEGORIES.indexOf(a.cat) - CATEGORIES.indexOf(b.cat));
+    }
+
+    // --- Game Logic ---
+
+    function initGame() {
+      renderQuestion();
+      lucide.createIcons();
+    }
+
+    function renderQuestion() {
+      const q = QUESTIONS[currentQ];
+      
+      // UI Reset
+      document.getElementById('noun-display').textContent = q.noun;
+      document.getElementById('feedback').innerHTML = '';
+      document.getElementById('check-btn').disabled = true;
+      
+      // Drop Zone Reset
+      const dropZone = document.getElementById('drop-zone');
+      dropZone.innerHTML = '<span class="text-purple-400/50 text-sm font-medium pointer-events-none select-none">Drop adjectives here to build the phrase</span>';
+      dropZone.classList.remove('correct-flash', 'wrong-flash');
+      
+      placed = [];
+
+      // Chips Zone Setup
+      const chipsZone = document.getElementById('chips-zone');
+      chipsZone.innerHTML = '';
+      
+      shuffle(q.adjectives).forEach((adj) => {
+        const chip = createChip(adj);
+        chipsZone.appendChild(chip);
+      });
+
+      // Update Progress
+      document.getElementById('progress-label').textContent = `Question ${currentQ + 1} / ${QUESTIONS.length}`;
+      document.getElementById('progress-bar').style.width = `${((currentQ) / QUESTIONS.length) * 100}%`;
+    }
+
+    function createChip(adj) {
+      const chip = document.createElement('div');
+      chip.className = 'adj-chip px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white font-bold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 border border-white/10';
+      chip.textContent = adj.word;
+      chip.draggable = true;
+      chip.dataset.word = adj.word;
+      chip.dataset.cat = adj.cat;
+      
+      // Drag Events
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify(adj));
+        e.dataTransfer.effectAllowed = 'move';
+        chip.classList.add('opacity-50');
+      });
+      
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('opacity-50');
+      });
+
+      // Click Event (for accessibility/mobile)
+      chip.addEventListener('click', () => {
+        placeChip(adj, chip);
+      });
+
+      return chip;
+    }
+
+    function placeChip(adj, sourceChip) {
+      // Remove from source if it's a DOM element in the list
+      if (sourceChip && sourceChip.parentNode) {
+        sourceChip.remove();
+      }
+
+      // Add to logical state
+      placed.push(adj);
+
+      // Update Drop Zone UI
+      const dropZone = document.getElementById('drop-zone');
+      
+      // Remove the "empty" placeholder text if this is the first item
+      if (placed.length === 1) {
+        dropZone.innerHTML = '';
+      }
+
+      const tag = document.createElement('div');
+      tag.className = 'slot px-4 py-2 rounded-full bg-amber-400 text-indigo-950 font-bold text-sm fade-in cursor-grab active:cursor-grabbing shadow-md border border-amber-300 flex items-center gap-2';
+      tag.innerHTML = `${adj.word} <i data-lucide="x" class="w-3 h-3 opacity-60 hover:opacity-100"></i>`;
+      
+      // Allow removing the tag
+      tag.addEventListener('click', () => removeChip(adj, tag));
+      tag.draggable = true;
+      
+      // Tag Drag Events (to move back to list)
+      tag.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify(adj));
+        tag.classList.add('opacity-50');
+      });
+      
+      dropZone.appendChild(tag);
+      lucide.createIcons();
+
+      // Enable check button if all adjectives are placed
+      const totalAdjectives = QUESTIONS[currentQ].adjectives.length;
+      document.getElementById('check-btn').disabled = placed.length !== totalAdjectives;
+    }
+
+    function removeChip(adj, tagElement) {
+      tagElement.remove();
+      placed = placed.filter(a => a.word !== adj.word);
+      
+      // If drop zone is empty, show placeholder
+      const dropZone = document.getElementById('drop-zone');
+      if (placed.length === 0) {
+        dropZone.innerHTML = '<span class="text-purple-400/50 text-sm font-medium pointer-events-none select-none">Drop adjectives here to build the phrase</span>';
+      }
+
+      // Re-add chip to the source zone
+      const chipsZone = document.getElementById('chips-zone');
+      const newChip = createChip(adj);
+      chipsZone.appendChild(newChip);
+
+      document.getElementById('check-btn').disabled = true;
+    }
+
+    // --- Drop Zone Interactions ---
+    const dropZone = document.getElementById('drop-zone');
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault(); // Necessary to allow dropping
+      e.dataTransfer.dropEffect = 'move';
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      // Only remove class if we are actually leaving the dropzone, not entering a child
+      if (e.relatedTarget && !dropZone.contains(e.relatedTarget)) {
+        dropZone.classList.remove('drag-over');
+      }
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      
+      try {
+        const data = e.dataTransfer.getData('text/plain');
+        if (!data) return;
+        
+        const adj = JSON.parse(data);
+        
+        // Check if the chip is being dragged from the dropzone itself (reordering not implemented, just returning)
+        // or from the chips zone.
+        // For simplicity in this version, we just find where it currently lives.
+        
+        const existingChipInZone = Array.from(dropZone.children).find(el => el.textContent.includes(adj.word));
+        const existingChipInList = document.querySelector(`#chips-zone [data-word="${adj.word}"]`);
+
+        if (existingChipInList) {
+          placeChip(adj, existingChipInList);
+        }
+      } catch (err) {
+        console.error("Drop error", err);
+      }
+    });
+
+    // --- Answer Checking ---
+    function checkAnswer() {
+      const currentQuestion = QUESTIONS[currentQ];
+      const correctOrder = getCorrectOrder(currentQuestion.adjectives);
+      
+      // Compare placed array words with correct array words
+      const isCorrect = placed.every((a, i) => a.word === correctOrder[i].word);
+      
+      const fb = document.getElementById('feedback');
+      const btn = document.getElementById('check-btn');
+      
+      btn.disabled = true; // Prevent double clicks
+
+      if (isCorrect) {
+        score++;
+        fb.innerHTML = `<span class="text-green-400 font-bold flex items-center justify-center gap-2"><i data-lucide="check-circle-2" class="w-5 h-5"></i> Correct! Great job!</span>`;
+        dropZone.classList.add('correct-flash');
+        // Remove click events from tags to prevent modification during delay
+        Array.from(dropZone.children).forEach(c => c.style.pointerEvents = 'none');
+      } else {
+        const correctPhrase = correctOrder.map(a => a.word).join(' ');
+        fb.innerHTML = `<span class="text-pink-300 font-bold flex items-center justify-center gap-2"><i data-lucide="alert-circle" class="w-5 h-5"></i> Not quite!</span>`;
+        dropZone.classList.add('wrong-flash');
+        
+        // Show the correct answer below the feedback
+        const correctionEl = document.createElement('div');
+        correctionEl.className = 'mt-2 text-sm text-purple-200 font-normal';
+        correctionEl.innerHTML = `Correct order: <span class="text-amber-300 font-bold">${correctPhrase}</span> ${currentQuestion.noun}`;
+        fb.appendChild(correctionEl);
+      }
+      
+      lucide.createIcons();
+      document.getElementById('score-label').textContent = `Score: ${score}`;
+
+      // Delay before next question
+      setTimeout(() => {
+        currentQ++;
+        if (currentQ < QUESTIONS.length) {
+          renderQuestion();
+        } else {
+          showResults();
+        }
+      }, 2500);
+    }
+
+    // --- End Game ---
+    function showResults() {
+      document.getElementById('game-area').classList.add('hidden');
+      document.getElementById('progress-bar').style.width = '100%';
+      
+      const rs = document.getElementById('results-screen');
+      rs.classList.remove('hidden');
+      
+      const percentage = Math.round((score / QUESTIONS.length) * 100);
+      let message = "";
+      if (percentage === 100) message = "Perfect Score! You're a grammar master!";
+      else if (percentage >= 80) message = "Excellent work! You know your adjectives.";
+      else if (percentage >= 50) message = "Good effort! Keep practicing.";
+      else message = "Keep learning! Practice makes perfect.";
+
+      document.getElementById('final-score').innerHTML = `
+        <div class="text-2xl font-bold text-white mb-1">${score} / ${QUESTIONS.length}</div>
+        <div class="text-sm opacity-80">${message}</div>
+      `;
+      lucide.createIcons();
+    }
+
+    function restartGame() {
+      currentQ = 0;
+      score = 0;
+      document.getElementById('score-label').textContent = 'Score: 0';
+      document.getElementById('results-screen').classList.add('hidden');
+      document.getElementById('game-area').classList.remove('hidden');
+      renderQuestion();
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', initGame);
+
+  </script>
+</body>
+</html>
